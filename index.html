@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리를 도와주는 자동차 짝맞추기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome (풍선, 리액션용 아이콘) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts (어린이용 둥글둥글한 폰트 적용) -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Gaegu', cursive, sans-serif;
+            background-color: #fef9e7; /* 부드럽고 따뜻한 노란빛 배경 */
+            user-select: none;
+        }
+
+        /* 3D 뒤집기 효과를 위한 스타일 */
+        .perspective {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+        }
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .card-front {
+            transform: rotateY(180deg);
+        }
+
+        /* 정답 맞췄을 때 뿜어져 나오는 파스텔톤 반짝임 효과 */
+        @keyframes pastel-sparkle {
+            0% {
+                box-shadow: 0 0 10px #ffb7b2, inset 0 0 10px #ffb7b2;
+                border-color: #ffb7b2;
+            }
+            25% {
+                box-shadow: 0 0 20px #ffdac1, inset 0 0 15px #ffdac1;
+                border-color: #ffdac1;
+            }
+            50% {
+                box-shadow: 0 0 25px #e2f0cb, inset 0 0 20px #e2f0cb;
+                border-color: #e2f0cb;
+            }
+            75% {
+                box-shadow: 0 0 20px #b5ead7, inset 0 0 15px #b5ead7;
+                border-color: #b5ead7;
+            }
+            100% {
+                box-shadow: 0 0 10px #ff9aa2, inset 0 0 10px #ff9aa2;
+                border-color: #ff9aa2;
+            }
+        }
+        .sparkle-matched {
+            animation: pastel-sparkle 1.5s infinite alternate;
+            border-width: 6px !important;
+            transform: scale(1.03);
+            z-index: 10;
+        }
+
+        /* 틀렸을 때 카드 흔들림 효과 */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) rotateY(180deg); }
+            15% { transform: translate(-8px, 0) rotateY(180deg) rotate(-3deg); }
+            30% { transform: translate(6px, 0) rotateY(180deg) rotate(3deg); }
+            45% { transform: translate(-6px, 0) rotateY(180deg) rotate(-2deg); }
+            60% { transform: translate(4px, 0) rotateY(180deg) rotate(2deg); }
+            75% { transform: translate(-2px, 0) rotateY(180deg) rotate(-1deg); }
+        }
+        .shake-wrong {
+            animation: shake 0.6s ease-in-out;
+        }
+
+        /* 통통 튀는 버튼 효과 */
+        .bounce-hover:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 overflow-x-hidden">
+
+    <!-- 상단 장식 구름 이미지 대용 SVG 배경 요소 -->
+    <div class="absolute top-0 left-0 w-full overflow-hidden pointer-events-none opacity-40 z-0">
+        <svg viewBox="0 0 1440 320" class="w-full h-auto">
+            <path fill="#e0f2fe" d="M0,192L48,197.3C96,203,192,213,288,197.3C384,181,480,139,576,144C672,149,768,203,864,202.7C960,203,1056,149,1152,122.7C1248,96,1344,96,1392,96L1440,96L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"></path>
+        </svg>
+    </div>
+
+    <!-- 헤더 / 로고 영역 -->
+    <header class="text-center my-4 z-10">
+        <h1 class="text-4xl md:text-5xl font-bold text-sky-600 drop-shadow-md tracking-wider flex justify-center items-center gap-2">
+            🚑 우리를 도와주는 자동차 짝맞추기 🚒
+        </h1>
+        <p class="text-lg md:text-xl text-gray-500 mt-2">카드 개수를 고르고 '실행하기'를 눌러봐요!</p>
+    </header>
+
+    <!-- 메인 대시보드 (설정 영역) -->
+    <main class="flex-grow flex flex-col items-center justify-center z-10 max-w-4xl mx-auto w-full">
+        
+        <!-- 설정 및 시작 화면 -->
+        <div id="setup-screen" class="bg-white/95 border-4 border-yellow-300 rounded-3xl p-6 md:p-10 shadow-2xl w-full max-w-lg text-center transform transition duration-500 hover:scale-[1.01]">
+            <h2 class="text-2xl md:text-3xl font-bold text-orange-500 mb-6">🚗 카드 종류 고르기 🚓</h2>
+            
+            <!-- 개수 선택 버튼 군 -->
+            <div class="flex justify-center gap-4 mb-8">
+                <button onclick="selectPairCount(2)" id="btn-pair-2" class="pair-btn w-20 h-20 md:w-24 md:h-24 bg-pink-100 hover:bg-pink-200 border-4 border-pink-400 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 focus:outline-none">
+                    <span class="text-3xl md:text-4xl font-bold text-pink-600">2</span>
+                    <span class="text-xs md:text-sm font-semibold text-pink-500 mt-1">4장 놀이</span>
+                </button>
+                <button onclick="selectPairCount(3)" id="btn-pair-3" class="pair-btn w-20 h-20 md:w-24 md:h-24 bg-amber-100 hover:bg-amber-200 border-4 border-amber-400 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 focus:outline-none">
+                    <span class="text-3xl md:text-4xl font-bold text-amber-600">3</span>
+                    <span class="text-xs md:text-sm font-semibold text-amber-500 mt-1">6장 놀이</span>
+                </button>
+                <button onclick="selectPairCount(4)" id="btn-pair-4" class="pair-btn w-20 h-20 md:w-24 md:h-24 bg-emerald-100 hover:bg-emerald-200 border-4 border-emerald-400 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 focus:outline-none">
+                    <span class="text-3xl md:text-4xl font-bold text-emerald-600">4</span>
+                    <span class="text-xs md:text-sm font-semibold text-emerald-500 mt-1">8장 놀이</span>
+                </button>
+            </div>
+
+            <!-- 실행하기 버튼 -->
+            <button onclick="startGame()" id="start-btn" class="bounce-hover w-full py-4 bg-gradient-to-r from-sky-400 to-blue-500 text-white text-2xl font-bold rounded-2xl shadow-lg hover:from-sky-500 hover:to-blue-600 border-b-8 border-blue-700 transition-all transform active:translate-y-1 active:border-b-2">
+                <i class="fas fa-play mr-2"></i> 게임 시작하기!
+            </button>
+        </div>
+
+        <!-- 실제 게임 플레이 판 -->
+        <div id="game-screen" class="hidden w-full flex flex-col items-center">
+            
+            <!-- 상단 상태표시창 -->
+            <div class="flex justify-between items-center w-full max-w-2xl px-4 py-2 mb-4 bg-sky-100/80 rounded-2xl border-2 border-sky-300 shadow-md">
+                <div class="text-xl md:text-2xl font-bold text-sky-700">
+                    <i class="fas fa-star text-yellow-400 animate-spin-slow"></i> 맞춘 짝: <span id="match-counter">0</span> / <span id="total-pairs-label">3</span>
+                </div>
+                <button onclick="resetToSetup()" class="bounce-hover px-4 py-1.5 bg-rose-400 hover:bg-rose-500 text-white font-bold rounded-xl shadow border-b-4 border-rose-600 text-base md:text-lg">
+                    <i class="fas fa-home"></i> 처음으로
+                </button>
+            </div>
+
+            <!-- 카드 레이아웃 영역 -->
+            <div id="card-grid" class="grid gap-4 w-full justify-center px-4 max-w-3xl">
+                <!-- 동적으로 카드들이 생성되는 공간 -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 유아 친화적인 성취 축하 성공 모달 (팝업창) -->
+    <div id="success-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+        <div class="bg-white border-8 border-yellow-300 rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl relative transform transition duration-500 scale-95 flex flex-col items-center">
+            
+            <!-- 위쪽 뿜어져 나오는 꽃가루 효과 풍선 아이콘 -->
+            <div class="absolute -top-16 text-6xl animate-bounce">
+                🎉🎈✨
+            </div>
+
+            <h2 class="text-4xl font-extrabold text-orange-500 mt-4 mb-2">참 잘했어요! 😍</h2>
+            <p class="text-xl text-gray-600 mb-6 font-bold">우리 동네 멋진 자동차 짝을<br>모두 다 찾았어요!</p>
+            
+            <!-- 귀여운 일러스트 아이콘 모음 -->
+            <div class="flex gap-4 text-4xl mb-8 text-sky-500 animate-pulse">
+                <i class="fas fa-taxi"></i>
+                <i class="fas fa-ambulance"></i>
+                <i class="fas fa-fire-extinguisher"></i>
+                <i class="fas fa-bus"></i>
+            </div>
+
+            <!-- 아래쪽 제어 버튼들 -->
+            <div class="flex flex-col gap-3 w-full">
+                <button onclick="restartSameGame()" class="bounce-hover py-3 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-xl font-bold rounded-2xl shadow-md hover:from-emerald-500 hover:to-teal-600 border-b-4 border-teal-700 transition">
+                    <i class="fas fa-redo mr-2"></i> 한 번 더 하기
+                </button>
+                <button onclick="resetToSetup()" class="bounce-hover py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xl font-bold rounded-2xl shadow-md hover:from-amber-500 hover:to-orange-600 border-b-4 border-orange-700 transition">
+                    <i class="fas fa-home mr-2"></i> 처음부터 고르기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 라이선스 및 푸터 -->
+    <footer class="text-center text-gray-400 text-xs md:text-sm mt-8 py-2 z-10 border-t border-gray-200">
+        © 우리를 도와주는 자동차 짝맞추기 교사용 에디션
+    </footer>
+
+    <!-- 효과음 오디오 컨텍스트 (브라우저 차단 완화를 위해 사운드 제네레이터 탑재) -->
+    <script>
+        // Web Audio API를 활용한 귀여운 효과음 생성기 (유아들이 좋아하는 상큼한 톤)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'flip') {
+                // 카드를 가볍게 뒤집을 때 '톡' 소리
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'match') {
+                // 성공했을 때 '뾰로롱~!' 신나는 소리
+                osc.type = 'sine';
+                const now = audioCtx.currentTime;
+                osc.frequency.setValueAtTime(523.25, now); // 도5
+                osc.frequency.setValueAtTime(659.25, now + 0.08); // 미5
+                osc.frequency.setValueAtTime(783.99, now + 0.16); // 솔5
+                osc.frequency.setValueAtTime(1046.50, now + 0.24); // 도6
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.32);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+                osc.start();
+                osc.stop(now + 0.45);
+            } else if (type === 'wrong') {
+                // 틀렸을 때 '어우~' 띠용 소리
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'victory') {
+                // 완전히 다 맞췄을 때 빰빰빰빰~! 축하 멜로디
+                const now = audioCtx.currentTime;
+                const notes = [523.25, 523.25, 523.25, 659.25, 783.99, 1046.50];
+                const durations = [0.1, 0.1, 0.1, 0.15, 0.15, 0.4];
+                let currentStart = now;
+
+                notes.forEach((freq, i) => {
+                    const noteOsc = audioCtx.createOscillator();
+                    const noteGain = audioCtx.createGain();
+                    noteOsc.connect(noteGain);
+                    noteGain.connect(audioCtx.destination);
+                    noteOsc.type = 'sine';
+                    noteOsc.frequency.setValueAtTime(freq, currentStart);
+                    
+                    noteGain.gain.setValueAtTime(0.15, currentStart);
+                    noteGain.gain.linearRampToValueAtTime(0.01, currentStart + durations[i]);
+                    
+                    noteOsc.start(currentStart);
+                    noteOsc.stop(currentStart + durations[i]);
+                    currentStart += durations[i] + 0.05;
+                });
+            }
+        }
+    </script>
+
+    <!-- 게임 비즈니스 로직 스크립트 -->
+    <script>
+        // 업로드된 이미지 파일들의 리스트와 해당 이름들 정보 설정
+        const CAR_IMAGES = [
+            { id: 'police', name: '경찰차', file: 'po.png' },
+            { id: 'ambulance', name: '구급차', file: 'am.png' },
+            { id: 'fire', name: '소방차', file: 'fire.png' },
+            { id: 'bus', name: '버스', file: 'bus.png' }
+        ];
+        const BACK_IMAGE = 'back.png';
+
+        // 게임 상태 관리 변수들
+        let selectedPairCount = 3; // 기본값은 3쌍 (6장 놀이)
+        let gameCards = [];
+        let flippedCards = [];
+        let matchedCount = 0;
+        let isLockBoard = false;
+
+        // 초기에 개수 고르는 버튼들의 스타일을 지정해주는 함수
+        function selectPairCount(count) {
+            selectedPairCount = count;
+            
+            // 모든 버튼 비활성화 스타일 처리
+            document.querySelectorAll('.pair-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-blue-500', 'scale-105', 'shadow-lg');
+                btn.classList.add('opacity-70');
+            });
+
+            // 선택된 버튼 활성화 스타일 처리
+            const activeBtn = document.getElementById(`btn-pair-${count}`);
+            if (activeBtn) {
+                activeBtn.classList.add('ring-4', 'ring-blue-500', 'scale-105', 'shadow-lg');
+                activeBtn.classList.remove('opacity-70');
+            }
+        }
+
+        // 페이지 로드 시 기본값 3을 선택해주도록 실행
+        window.addEventListener('DOMContentLoaded', () => {
+            selectPairCount(3);
+        });
+
+        // 카드 뒤섞기 알고리즘 (피셔-예이츠 셔플)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 게임판 카드 셋업 및 초기 렌더링
+        function prepareCards() {
+            // 1. 사용할 자동차를 전체 이미지 배열에서 무작위로 선택
+            // (사용자가 고른 페어수만큼 가져오기 위해 셔플하여 뽑음)
+            const shuffledPool = shuffle([...CAR_IMAGES]);
+            const selectedCars = shuffledPool.slice(0, selectedPairCount);
+
+            // 2. 쌍을 맞춰야 하므로 각각 2개씩 복제하여 카드 덱 구성
+            let deck = [];
+            selectedCars.forEach(car => {
+                deck.push({ ...car, uniqueId: Math.random() });
+                deck.push({ ...car, uniqueId: Math.random() });
+            });
+
+            // 3. 구성된 덱을 무작위로 한 번 더 셔플
+            gameCards = shuffle(deck);
+        }
+
+        // 그리드 레이아웃 조절 (카드 장수에 맞는 반응형 열 크기 조절)
+        function adjustGridLayout() {
+            const grid = document.getElementById('card-grid');
+            grid.innerHTML = ''; // 기존 카드 모두 삭제
+
+            const totalCards = selectedPairCount * 2;
+            
+            // Tailwind 동적 Grid class 매핑
+            if (totalCards === 4) {
+                grid.className = "grid grid-cols-2 gap-4 max-w-sm w-full mx-auto";
+            } else if (totalCards === 6) {
+                grid.className = "grid grid-cols-2 md:grid-cols-3 gap-4 max-w-xl w-full mx-auto";
+            } else if (totalCards === 8) {
+                grid.className = "grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl w-full mx-auto";
+            }
+        }
+
+        // 게임 시작하기 버튼 이벤트
+        function startGame() {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            prepareCards();
+            adjustGridLayout();
+            renderCards();
+
+            // 상단 카운터 정보 갱신
+            matchedCount = 0;
+            document.getElementById('match-counter').innerText = '0';
+            document.getElementById('total-pairs-label').innerText = selectedPairCount;
+            flippedCards = [];
+            isLockBoard = false;
+        }
+
+        // 카드 리스트 렌더링 및 클릭 이벤트 등록
+        function renderCards() {
+            const grid = document.getElementById('card-grid');
+
+            gameCards.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'perspective w-full aspect-[2/3] max-w-[160px] h-[220px] md:h-[240px] cursor-pointer mx-auto';
+                cardEl.dataset.index = index;
+
+                cardEl.innerHTML = `
+                    <div class="card-inner w-full h-full relative rounded-2xl shadow-xl border-4 border-white/80 bg-white">
+                        <!-- 뒷면 이미지 (기본 노출) -->
+                        <div class="card-back rounded-xl flex items-center justify-center bg-[#f0f4f8] overflow-hidden p-2">
+                            <img src="${BACK_IMAGE}" alt="카드 뒷면" class="w-full h-full object-contain pointer-events-none rounded-lg" onerror="this.src='https://placehold.co/150x220?text=🚗'">
+                        </div>
+                        <!-- 앞면 이미지 (뒤집혔을 때) -->
+                        <div class="card-front rounded-xl flex flex-col items-center justify-between bg-white overflow-hidden p-3 border border-gray-100">
+                            <div class="w-full h-3/4 flex items-center justify-center">
+                                <img src="${card.file}" alt="${card.name}" class="w-full h-full object-contain pointer-events-none" onerror="this.src='https://placehold.co/150x150?text=${card.name}'">
+                            </div>
+                            <span class="text-xl md:text-2xl font-bold text-gray-800 mt-2">${card.name}</span>
+                        </div>
+                    </div>
+                `;
+
+                // 유아들을 위한 터치 및 마우스 클릭 지원 이벤트 바인딩
+                cardEl.addEventListener('click', () => handleCardClick(cardEl, index));
+                grid.appendChild(cardEl);
+            });
+        }
+
+        // 카드 클릭 처리
+        function handleCardClick(cardEl, index) {
+            if (isLockBoard) return; // 화면 잠금(비교 연산 진행중 등)인 경우 클릭 가드
+
+            const cardInner = cardEl.querySelector('.card-inner');
+            
+            // 이미 뒤집혀있거나 정답을 맞춘 카드인 경우 조작 안되게 보호
+            if (cardInner.classList.contains('flipped') || cardInner.classList.contains('sparkle-matched')) return;
+
+            // 카드 뒤집기 액션 진행
+            cardInner.classList.add('flipped');
+            playSound('flip');
+
+            // 추적 배열에 저장
+            flippedCards.push({ element: cardEl, index: index, data: gameCards[index] });
+
+            // 두 장을 모두 뒤집었는지 확인
+            if (flippedCards.length === 2) {
+                isLockBoard = true; // 세번째 카드 클릭 방지를 위해 보드 잠금
+                checkMatch();
+            }
+        }
+
+        // 두 카드가 일치하는지 판별
+        function checkMatch() {
+            const [card1, card2] = flippedCards;
+            
+            if (card1.data.id === card2.data.id) {
+                // 일치했을 때!
+                handleMatchSuccess(card1.element, card2.element);
+            } else {
+                // 다를 때!
+                handleMatchFailure(card1.element, card2.element);
+            }
+        }
+
+        // 짝 맞춤 성공 시 리액션
+        function handleMatchSuccess(el1, el2) {
+            matchedCount++;
+            document.getElementById('match-counter').innerText = matchedCount;
+
+            setTimeout(() => {
+                const inner1 = el1.querySelector('.card-inner');
+                const inner2 = el2.querySelector('.card-inner');
+
+                // 아름다운 파스텔 톤 반짝이 테두리 추가 및 고정
+                inner1.classList.add('sparkle-matched');
+                inner2.classList.add('sparkle-matched');
+
+                playSound('match');
+
+                // 상태 변수 초기화 및 잠금 해제
+                flippedCards = [];
+                isLockBoard = false;
+
+                // 모든 카드를 맞춘 경우 게임종료 팝업 활성화
+                if (matchedCount === selectedPairCount) {
+                    setTimeout(() => {
+                        triggerVictory();
+                    }, 800);
+                }
+            }, 500);
+        }
+
+        // 틀렸을 경우 리액션
+        function handleMatchFailure(el1, el2) {
+            setTimeout(() => {
+                const inner1 = el1.querySelector('.card-inner');
+                const inner2 = el2.querySelector('.card-inner');
+
+                // 틀렸을 때 통통 흔들리는 쉐이크 애니메이션 적용
+                inner1.classList.add('shake-wrong');
+                inner2.classList.add('shake-wrong');
+                playSound('wrong');
+
+                // 흔들린 후 다시 원상 복구 및 뒤집기 해제
+                setTimeout(() => {
+                    inner1.classList.remove('shake-wrong', 'flipped');
+                    inner2.classList.remove('shake-wrong', 'flipped');
+                    
+                    // 변수 리셋 및 잠금 해제
+                    flippedCards = [];
+                    isLockBoard = false;
+                }, 800);
+            }, 600);
+        }
+
+        // 전체 카드를 맞춰 승리했을 때
+        function triggerVictory() {
+            playSound('victory');
+            const modal = document.getElementById('success-modal');
+            modal.classList.remove('hidden');
+        }
+
+        // 모달창 내 '한 번 더 하기' (동일 카드 개수로 게임 재시작)
+        function restartSameGame() {
+            document.getElementById('success-modal').classList.add('hidden');
+            startGame();
+        }
+
+        // '처음부터 고르기' 또는 메인 처음으로 돌아가기 버튼
+        function resetToSetup() {
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+            selectPairCount(selectedPairCount); // 마지막에 골랐던 개수 버튼으로 포커스
+        }
+    </script>
+</body>
+</html>
