@@ -267,14 +267,22 @@
 
     <!-- 게임 비즈니스 로직 스크립트 -->
     <script>
-        // 업로드된 이미지 파일들의 리스트와 해당 이름들 정보 설정
+        // ==========================================
+        // 깃허브 및 로컬 이미지 경로(BASE_URL) 설정
+        // ==========================================
+        // 1. 깃허브 저장소에 index.html과 images 폴더를 같이 업로드해 사용하신다면 기본값 './images/'를 그대로 쓰시면 됩니다.
+        // 2. 다른 곳에서 깃허브에 업로드된 이미지만 절대 경로로 땡겨오고 싶다면 아래 예시 주소처럼 수정해 보세요!
+        // 예시: const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/깃허브아이디/저장소이름/main/images/';
+        const IMAGE_BASE_URL = './images/';
+
+        // 업로드된 이미지 파일들의 리스트와 해당 이름들 정보 설정 (images 폴더 경로 반영)
         const CAR_IMAGES = [
-            { id: 'police', name: '경찰차', file: 'po.png' },
-            { id: 'ambulance', name: '구급차', file: 'am.png' },
-            { id: 'fire', name: '소방차', file: 'fire.png' },
-            { id: 'bus', name: '버스', file: 'bus.png' }
+            { id: 'police', name: '경찰차', file: IMAGE_BASE_URL + 'po.png' },
+            { id: 'ambulance', name: '구급차', file: IMAGE_BASE_URL + 'am.png' },
+            { id: 'fire', name: '소방차', file: IMAGE_BASE_URL + 'fire.png' },
+            { id: 'bus', name: '버스', file: IMAGE_BASE_URL + 'bus.png' }
         ];
-        const BACK_IMAGE = 'back.png';
+        const BACK_IMAGE = IMAGE_BASE_URL + 'back.png';
 
         // 게임 상태 관리 변수들
         let selectedPairCount = 3; // 기본값은 3쌍 (6장 놀이)
